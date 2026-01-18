@@ -1,7 +1,8 @@
 class PomodoroTimer {
     constructor() {
-        this.timeLeft = 25 * 60;
-        this.totalTime = 25 * 60;
+        this.defaultDuration = 25;
+        this.timeLeft = this.defaultDuration * 60;
+        this.totalTime = this.defaultDuration * 60;
         this.intervalId = null;
         this.isRunning = false;
 
@@ -10,19 +11,51 @@ class PomodoroTimer {
         this.resetBtn = document.getElementById('reset-btn');
         this.circle = document.querySelector('.progress-ring__circle');
 
+        // New Controls
+        this.durationInput = document.getElementById('duration-input');
+        this.soundSelect = document.getElementById('sound-select');
+
         this.circumference = 2 * Math.PI * 140;
         this.circle.style.strokeDasharray = `${this.circumference} ${this.circumference}`;
 
-        // Simple beep sound using AudioContext
+        // Audio Engines
         this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        this.soundGenerator = new SoundGenerator();
 
         this.init();
     }
 
     init() {
         this.updateDisplay();
+
         this.startBtn.addEventListener('click', () => this.toggleTimer());
         this.resetBtn.addEventListener('click', () => this.resetTimer());
+
+        this.durationInput.addEventListener('change', () => this.updateDuration());
+        this.soundSelect.addEventListener('change', (e) => this.handleSoundChange(e.target.value));
+    }
+
+    updateDuration() {
+        let minutes = parseInt(this.durationInput.value);
+        if (isNaN(minutes) || minutes < 1) minutes = 1;
+        if (minutes > 180) minutes = 180;
+
+        this.durationInput.value = minutes;
+        this.defaultDuration = minutes;
+
+        if (!this.isRunning) {
+            this.totalTime = minutes * 60;
+            this.timeLeft = this.totalTime;
+            this.updateDisplay();
+        }
+    }
+
+    handleSoundChange(type) {
+        if (type === 'off') {
+            this.soundGenerator.stop();
+        } else {
+            this.soundGenerator.play(type);
+        }
     }
 
     updateDisplay() {
@@ -48,12 +81,15 @@ class PomodoroTimer {
         this.isRunning = true;
         this.startBtn.textContent = 'Pause';
         this.startBtn.classList.remove('primary');
-        this.startBtn.classList.add('secondary'); // Visual feedback
+        this.startBtn.classList.add('secondary');
 
-        // Resume AudioContext if suspended (browser policy)
         if (this.audioCtx.state === 'suspended') {
             this.audioCtx.resume();
         }
+
+        // Ensure background sound is playing if selected? 
+        // Current design: background sound is independent toggle. 
+        // We just ensure audio context is resumed.
 
         this.intervalId = setInterval(() => {
             this.timeLeft--;
@@ -75,6 +111,7 @@ class PomodoroTimer {
 
     resetTimer() {
         this.pauseTimer();
+        this.totalTime = this.defaultDuration * 60; // Reset to current set duration
         this.timeLeft = this.totalTime;
         this.updateDisplay();
     }
@@ -82,7 +119,7 @@ class PomodoroTimer {
     completeTimer() {
         this.pauseTimer();
         this.playNotification();
-        this.startBtn.textContent = 'Start'; // Reset button text
+        this.startBtn.textContent = 'Start';
     }
 
     playNotification() {
@@ -90,7 +127,7 @@ class PomodoroTimer {
         const gainNode = this.audioCtx.createGain();
 
         oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(440, this.audioCtx.currentTime); // A4
+        oscillator.frequency.setValueAtTime(440, this.audioCtx.currentTime);
         oscillator.frequency.exponentialRampToValueAtTime(880, this.audioCtx.currentTime + 0.5);
 
         gainNode.gain.setValueAtTime(0.5, this.audioCtx.currentTime);
