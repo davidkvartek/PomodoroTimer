@@ -14,6 +14,8 @@ class PomodoroTimer {
         // New Controls
         this.durationInput = document.getElementById('duration-input');
         this.soundSelect = document.getElementById('sound-select');
+        this.volumeInput = document.getElementById('volume-input');
+        this.notificationToggle = document.getElementById('notification-toggle');
 
         this.circumference = 2 * Math.PI * 140;
         this.circle.style.strokeDasharray = `${this.circumference} ${this.circumference}`;
@@ -33,6 +35,26 @@ class PomodoroTimer {
 
         this.durationInput.addEventListener('change', () => this.updateDuration());
         this.soundSelect.addEventListener('change', (e) => this.handleSoundChange(e.target.value));
+        this.volumeInput.addEventListener('input', (e) => this.handleVolumeChange(e.target.value));
+        this.notificationToggle.addEventListener('change', () => this.handleNotificationToggle());
+    }
+
+    handleVolumeChange(value) {
+        this.soundGenerator.setVolume(value);
+    }
+
+    async handleNotificationToggle() {
+        if (this.notificationToggle.checked) {
+            if (Notification.permission === 'default') {
+                const permission = await Notification.requestPermission();
+                if (permission !== 'granted') {
+                    this.notificationToggle.checked = false;
+                }
+            } else if (Notification.permission === 'denied') {
+                alert('Notification permission was denied. Please enable it in your browser settings.');
+                this.notificationToggle.checked = false;
+            }
+        }
     }
 
     updateDuration() {
@@ -138,6 +160,17 @@ class PomodoroTimer {
 
         oscillator.start();
         oscillator.stop(this.audioCtx.currentTime + 0.5);
+
+        this.sendNotification();
+    }
+
+    sendNotification() {
+        if (this.notificationToggle.checked && Notification.permission === 'granted') {
+            new Notification('Pomodoro Timer', {
+                body: 'Time is up! Take a break or start a new session.',
+                icon: '/static/icon.png' // Optional: assuming an icon might exist later
+            });
+        }
     }
 }
 

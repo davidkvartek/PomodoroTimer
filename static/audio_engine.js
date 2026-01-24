@@ -4,7 +4,8 @@ class SoundGenerator {
         this.currentSource = null;
         this.gainNode = this.ctx.createGain();
         this.gainNode.connect(this.ctx.destination);
-        this.gainNode.gain.value = 0; // Start silent
+        this.volume = 0.3; // Default volume
+        this.gainNode.gain.value = 0; // Start silent (fade in will happen)
         this.isPlaying = false;
         this.bufferSize = 2 * this.ctx.sampleRate;
     }
@@ -58,8 +59,15 @@ class SoundGenerator {
         this.currentSource = source;
         this.isPlaying = true;
 
-        // Ramp up
-        this.gainNode.gain.setTargetAtTime(0.3, this.ctx.currentTime, 0.5); // Volume 0.3
+        // Ramp up to current volume
+        this.gainNode.gain.setTargetAtTime(this.volume, this.ctx.currentTime, 0.5);
+    }
+
+    setVolume(value) {
+        this.volume = parseFloat(value);
+        if (this.isPlaying) {
+            this.gainNode.gain.setTargetAtTime(this.volume, this.ctx.currentTime, 0.1);
+        }
     }
 
     createWhiteNoise() {
