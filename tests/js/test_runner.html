@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomodoro Timer Tests</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mocha/10.2.0/mocha.min.css">
+</head>
+<body>
+    <div id="mocha"></div>
+
+    <!-- Mock DOM Elements for PomodoroTimer -->
+    <div style="display: none;">
+        <div id="time-display">25:00</div>
+        <button id="start-btn">Start</button>
+        <button id="reset-btn">Reset</button>
+        <svg class="progress-ring">
+            <circle class="progress-ring__circle"></circle>
+        </svg>
+        <input id="duration-input" value="25">
+        <select id="sound-select">
+            <option value="off">Off</option>
+            <option value="rain">Rain</option>
+            <option value="white">White Noise</option>
+        </select>
+        <input id="volume-input" value="0.3">
+        <input type="checkbox" id="notification-toggle">
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mocha/10.2.0/mocha.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chai/4.3.7/chai.min.js"></script>
+
+    <script class="mocha-init">
+        mocha.setup('bdd');
+        mocha.checkLeaks();
+    </script>
+    
+    <!-- Application Code -->
+    <!-- We need to read these files from the static directory. 
+         Since we are running from tests/js/, the path is ../../static/ -->
+    <script src="../../static/audio_engine.js"></script>
+    <script src="../../static/script.js"></script>
+
+    <!-- Tests -->
+    <script src="test_script.js"></script>
+
+    <script class="mocha-exec">
+        mocha.run();
+    </script>
+</body>
+</html>
