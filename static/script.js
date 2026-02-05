@@ -1,17 +1,77 @@
+class TimerLogic {
+    constructor(defaultDuration = 25, onTick = null, onComplete = null) {
+        this.defaultDuration = defaultDuration;
+        this.timeLeft = defaultDuration * 60;
+        this.totalTime = defaultDuration * 60;
+        this.isRunning = false;
+        this.intervalId = null;
+        this.onTick = onTick;
+        this.onComplete = onComplete;
+    }
+
+    setDuration(minutes) {
+        minutes = parseInt(minutes);
+        if (isNaN(minutes) || minutes < 1) minutes = 1;
+        if (minutes > 180) minutes = 180;
+
+        this.defaultDuration = minutes;
+        this.totalTime = minutes * 60;
+        this.timeLeft = this.totalTime;
+        return minutes;
+    }
+
+    start() {
+        if (this.isRunning || this.timeLeft <= 0) return;
+        this.isRunning = true;
+        this.intervalId = setInterval(() => {
+            this.tick();
+        }, 1000);
+    }
+
+    pause() {
+        this.isRunning = false;
+        if (this.intervalId) {
+            clearInterval(this.intervalId);
+            this.intervalId = null;
+        }
+    }
+
+    reset() {
+        this.pause();
+        this.timeLeft = this.totalTime;
+    }
+
+    tick() {
+        this.timeLeft--;
+        if (this.onTick) this.onTick(this.timeLeft, this.totalTime);
+
+        if (this.timeLeft <= 0) {
+            this.complete();
+        }
+    }
+
+    complete() {
+        this.pause();
+        if (this.onComplete) this.onComplete();
+    }
+}
+
 class PomodoroTimer {
     constructor() {
-        this.defaultDuration = 25;
-        this.timeLeft = this.defaultDuration * 60;
-        this.totalTime = this.defaultDuration * 60;
-        this.intervalId = null;
-        this.isRunning = false;
+        // Initialize Logic
+        this.logic = new TimerLogic(
+            25,
+            (timeLeft) => this.updateDisplay(),
+            () => this.completeTimer()
+        );
 
+        // DOM Elements
         this.timeDisplay = document.getElementById('time-display');
         this.startBtn = document.getElementById('start-btn');
         this.resetBtn = document.getElementById('reset-btn');
         this.circle = document.querySelector('.progress-ring__circle');
 
-        // New Controls
+        // Controls
         this.durationInput = document.getElementById('duration-input');
         this.soundSelect = document.getElementById('sound-select');
         this.volumeInput = document.getElementById('volume-input');
@@ -20,12 +80,21 @@ class PomodoroTimer {
         this.circumference = 2 * Math.PI * 140;
         this.circle.style.strokeDasharray = `${this.circumference} ${this.circumference}`;
 
-        // Audio Engines
+        // Audio
         this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         this.soundGenerator = new SoundGenerator();
 
         this.init();
     }
+
+    // Compatibility Getters/Setters for existing tests
+    get timeLeft() { return this.logic.timeLeft; }
+    set timeLeft(val) { this.logic.timeLeft = val; }
+    get isRunning() { return this.logic.isRunning; }
+    get defaultDuration() { return this.logic.defaultDuration; }
+    set defaultDuration(val) { this.logic.defaultDuration = val; }
+    get totalTime() { return this.logic.totalTime; }
+    set totalTime(val) { this.logic.totalTime = val; }
 
     init() {
         this.updateDisplay();
@@ -58,16 +127,11 @@ class PomodoroTimer {
     }
 
     updateDuration() {
-        let minutes = parseInt(this.durationInput.value);
-        if (isNaN(minutes) || minutes < 1) minutes = 1;
-        if (minutes > 180) minutes = 180;
+        // Logic handles clamping
+        const newDuration = this.logic.setDuration(this.durationInput.value);
+        this.durationInput.value = newDuration; // Update input with clamped value
 
-        this.durationInput.value = minutes;
-        this.defaultDuration = minutes;
-
-        if (!this.isRunning) {
-            this.totalTime = minutes * 60;
-            this.timeLeft = this.totalTime;
+        if (!this.logic.isRunning) {
             this.updateDisplay();
         }
     }
@@ -81,16 +145,20 @@ class PomodoroTimer {
     }
 
     updateDisplay() {
-        const minutes = Math.floor(this.timeLeft / 60);
-        const seconds = this.timeLeft % 60;
-        this.timeDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        const minutes = Math.floor(this.logic.timeLeft / 60);
+        const seconds = this.logic.timeLeft % 60;
+        if (this.timeDisplay) {
+            this.timeDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
 
-        const offset = this.circumference - (this.timeLeft / this.totalTime) * this.circumference;
-        this.circle.style.strokeDashoffset = offset;
+        if (this.circle) {
+            const offset = this.circumference - (this.logic.timeLeft / this.logic.totalTime) * this.circumference;
+            this.circle.style.strokeDashoffset = offset;
+        }
     }
 
     toggleTimer() {
-        if (this.isRunning) {
+        if (this.logic.isRunning) {
             this.pauseTimer();
         } else {
             this.startTimer();
@@ -98,9 +166,10 @@ class PomodoroTimer {
     }
 
     startTimer() {
-        if (this.timeLeft === 0) return;
+        if (this.logic.timeLeft === 0) return;
 
-        this.isRunning = true;
+        this.logic.start();
+
         this.startBtn.textContent = 'Pause';
         this.startBtn.classList.remove('primary');
         this.startBtn.classList.add('secondary');
@@ -108,33 +177,18 @@ class PomodoroTimer {
         if (this.audioCtx.state === 'suspended') {
             this.audioCtx.resume();
         }
-
-        // Ensure background sound is playing if selected? 
-        // Current design: background sound is independent toggle. 
-        // We just ensure audio context is resumed.
-
-        this.intervalId = setInterval(() => {
-            this.timeLeft--;
-            this.updateDisplay();
-
-            if (this.timeLeft <= 0) {
-                this.completeTimer();
-            }
-        }, 1000);
     }
 
     pauseTimer() {
-        this.isRunning = false;
+        this.logic.pause();
         this.startBtn.textContent = 'Start';
         this.startBtn.classList.add('primary');
         this.startBtn.classList.remove('secondary');
-        clearInterval(this.intervalId);
     }
 
     resetTimer() {
         this.pauseTimer();
-        this.totalTime = this.defaultDuration * 60; // Reset to current set duration
-        this.timeLeft = this.totalTime;
+        this.logic.reset();
         this.updateDisplay();
     }
 
@@ -168,12 +222,21 @@ class PomodoroTimer {
         if (this.notificationToggle.checked && Notification.permission === 'granted') {
             new Notification('Pomodoro Timer', {
                 body: 'Time is up! Take a break or start a new session.',
-                icon: '/static/icon.png' // Optional: assuming an icon might exist later
+                icon: '/static/icon.png'
             });
         }
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    new PomodoroTimer();
-});
+if (typeof document !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', () => {
+        // Check if we are in a test environment (Node/Jest) or Browser
+        if (document.getElementById('time-display')) {
+            new PomodoroTimer();
+        }
+    });
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { TimerLogic, PomodoroTimer };
+}
