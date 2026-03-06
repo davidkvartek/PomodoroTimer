@@ -97,6 +97,7 @@ class PomodoroTimer {
     set totalTime(val) { this.logic.totalTime = val; }
 
     init() {
+        this.loadPreferences();
         this.updateDisplay();
 
         this.startBtn.addEventListener('click', () => this.toggleTimer());
@@ -108,8 +109,35 @@ class PomodoroTimer {
         this.notificationToggle.addEventListener('change', () => this.handleNotificationToggle());
     }
 
+    loadPreferences() {
+        if (typeof localStorage === 'undefined') return;
+
+        const savedDuration = localStorage.getItem('pomodoro-duration');
+        if (savedDuration) {
+            this.durationInput.value = savedDuration;
+            this.logic.setDuration(savedDuration);
+        }
+
+        const savedSound = localStorage.getItem('pomodoro-sound');
+        if (savedSound) {
+            this.soundSelect.value = savedSound;
+        }
+
+        const savedVolume = localStorage.getItem('pomodoro-volume');
+        if (savedVolume) {
+            this.volumeInput.value = savedVolume;
+            this.soundGenerator.setVolume(savedVolume);
+        }
+
+        const savedNotification = localStorage.getItem('pomodoro-notification');
+        if (savedNotification !== null) {
+            this.notificationToggle.checked = savedNotification === 'true';
+        }
+    }
+
     handleVolumeChange(value) {
         this.soundGenerator.setVolume(value);
+        if (typeof localStorage !== 'undefined') localStorage.setItem('pomodoro-volume', value);
     }
 
     async handleNotificationToggle() {
@@ -124,12 +152,14 @@ class PomodoroTimer {
                 this.notificationToggle.checked = false;
             }
         }
+        if (typeof localStorage !== 'undefined') localStorage.setItem('pomodoro-notification', this.notificationToggle.checked);
     }
 
     updateDuration() {
         // Logic handles clamping
         const newDuration = this.logic.setDuration(this.durationInput.value);
         this.durationInput.value = newDuration; // Update input with clamped value
+        if (typeof localStorage !== 'undefined') localStorage.setItem('pomodoro-duration', newDuration);
 
         if (!this.logic.isRunning) {
             this.updateDisplay();
@@ -137,6 +167,7 @@ class PomodoroTimer {
     }
 
     handleSoundChange(type) {
+        if (typeof localStorage !== 'undefined') localStorage.setItem('pomodoro-sound', type);
         if (type === 'off') {
             this.soundGenerator.stop();
         } else {
@@ -147,8 +178,13 @@ class PomodoroTimer {
     updateDisplay() {
         const minutes = Math.floor(this.logic.timeLeft / 60);
         const seconds = this.logic.timeLeft % 60;
+        const timeString = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        
         if (this.timeDisplay) {
-            this.timeDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            this.timeDisplay.textContent = timeString;
+            if (typeof document !== 'undefined') {
+                document.title = `(${timeString}) Pomodoro Timer`;
+            }
         }
 
         if (this.circle) {
